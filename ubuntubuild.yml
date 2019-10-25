@@ -1,0 +1,47 @@
+---
+- hosts: all
+  remote_user: root
+  become: true 
+  gather_facts: no
+  vars:
+    - ansible_user: zype
+
+  tasks:
+  - name: install puppet 5 repo 
+    apt:
+      deb: https://apt.puppetlabs.com/puppet5-release-wheezy.deb
+
+  - name: Ensure all packages are up to date
+    apt:
+      upgrade: yes
+      update_cache: yes
+      cache_valid_time: 86400 #One day
+
+  - name: Install a list of packages
+    apt:
+      name: "{{ packages }}"
+    vars:
+      packages:
+      - puppet-agent
+      - open-vm-tools
+
+  - name: Add a service account
+    user:
+      name: studentsvc
+
+  - name: Set authorized key from file
+    authorized_key:
+      user: studentsvc
+      state: present
+      key: "{{ lookup('file', '/tmp/studentkey.pub') }}"
+
+  - name: Validate the sudoers file before saving
+    lineinfile:
+      path: /etc/sudoers
+      state: present
+      insertafter: EOF
+      line: 'studentsvc     ALL=(ALL) NOPASSWD:ALL' 
+      validate: /usr/sbin/visudo -cf %s 
+
+  - name: Restart server
+    shell: /sbin/shutdown -r +1
